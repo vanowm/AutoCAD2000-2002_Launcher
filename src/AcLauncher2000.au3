@@ -6,7 +6,7 @@
 #AutoIt3Wrapper_UseUpx=y
 #AutoIt3Wrapper_Res_Comment=AutoCAD DWG Launcher
 #AutoIt3Wrapper_Res_Description=AutoCAD DWG Launcher
-#AutoIt3Wrapper_Res_Fileversion=1.0.0.6
+#AutoIt3Wrapper_Res_Fileversion=1.0.0.8
 #AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
 #AutoIt3Wrapper_Res_ProductVersion=1.0.0
 #AutoIt3Wrapper_Res_LegalCopyright=©V@no 2018
@@ -16,7 +16,7 @@
 #AutoIt3Wrapper_Run_Au3Stripper=y
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 
-Global Const $VERSION = "1.0.0.6"
+Global Const $VERSION = "1.0.0.8"
 ;registry key were we'll temporary store list of files to open in Acad
 Global $regKey = "HKCU\Software\Autodesk\AutoCAD"
 Global $regName = "AcLauncher2000"
@@ -66,7 +66,12 @@ While (1)
 				For $i = 1 To $dwg[0]
 					;open drawings, one-by-one
 					Local $o = $obj.Documents.Open($dwg[$i])
-					If Not IsObj($o) Then MsgBox(0, "Error", $oError)
+					If Not IsObj($o) Then
+						MsgBox(0, "Error", $oError)
+					Else
+						Local $hwnd = _GetPIDWindows($acadPID)
+						If $hwnd Then WinActivate($hwnd)
+					EndIf
 				Next
 			EndIf
 		EndIf
@@ -88,6 +93,16 @@ Func Err($e)
 				"err.retcode is:	" & "0x" & Hex($e.retcode) & @CRLF
 
 EndFunc   ;==>MyErrFunc
+
+func _GetPIDWindows($PID)
+    $WinList=WinList()
+    for $i=1 to $WinList[0][0]
+        if WinGetProcess($WinList[$i][1])=$PID then
+            Return $WinList[$i][1]
+        EndIf
+    Next
+    Return 0
+EndFunc
 
 Func quit($clearReg = True)
 	If $clearReg Then RegDelete($regKey, $regName)
