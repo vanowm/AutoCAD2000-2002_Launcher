@@ -6,7 +6,7 @@
 #AutoIt3Wrapper_UseUpx=y
 #AutoIt3Wrapper_Res_Comment=AutoCAD DWG Launcher
 #AutoIt3Wrapper_Res_Description=AutoCAD DWG Launcher
-#AutoIt3Wrapper_Res_Fileversion=1.0.0.0
+#AutoIt3Wrapper_Res_Fileversion=1.0.0.6
 #AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
 #AutoIt3Wrapper_Res_ProductVersion=1.0.0
 #AutoIt3Wrapper_Res_LegalCopyright=©V@no 2018
@@ -16,68 +16,80 @@
 #AutoIt3Wrapper_Run_Au3Stripper=y
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 
-Global Const $VERSION = "1.0.0.0"
+Global Const $VERSION = "1.0.0.6"
 ;registry key were we'll temporary store list of files to open in Acad
-Global $reglist = "HKCU\Software\Autodesk\AutoCAD"
-Global $obj
-ObjEvent("AutoIt.Error", "Err")
+Global $regKey = "HKCU\Software\Autodesk\AutoCAD"
+Global $regName = "AcLauncher2000"
+Global $errObj = ObjEvent("AutoIt.Error", "Err")
 Global $self = @Compiled ? @ScriptName : @AutoItExe
+Global $obj, $oError
 Dim $dwg
 
-$pid = ProcessExists($self)
+$selfPID = ProcessExists($self)
 If $CmdLine[0] Then
-	Local $s = ""
+	Local $s = RegRead($regKey, $regName)
 	For $i = 1 To $CmdLine[0]
 		$s &= ($s = "" ? "" : "|") & $CmdLine[$i]
 	Next
 	;store everything from command line into registry
-	RegWrite($reglist, "launcher", "REG_SZ", $s)
+	RegWrite($regKey, $regName, "REG_SZ", $s)
 EndIf
 If Not IsAdmin() Then
-	If (Not $pid Or $pid = @AutoItPID) Then
+	If (Not $selfPID Or $selfPID = @AutoItPID) Then
 		;request administrative privileges
-		ShellExecute($self, $CmdLineRaw, "", "runas")
+		ShellExecute($self, "", @ScriptDir, "runas")
 	EndIf
-	quit()
+	quit(False)
 Else
 	;make sure only one instance of this launcher started
-	If $pid And $pid <> @AutoItPID Then quit()
+	If $selfPID And $selfPID <> @AutoItPID Then quit()
 EndIf
 
-$acadPid = ProcessExists("acad.exe")
-If Not $acadPid Then
+$acadPID = ProcessExists("acad.exe")
+If Not $acadPID Then
 	;we need acad.exe running in order to get ActiveX object
-	$acadPid = ShellExecute("acad.exe")
+	$acadPID = ShellExecute("acad.exe")
 EndIf
-;we'll loop here while acad.exe is running, since we are running with elevated
+;loop here while acad.exe is running, since we are running as elevated, no more UAC prompts will be displayed
 While (1)
-	If $acadPid Then
+	If $acadPID Then
 		If Not IsObj($obj) Then
-			;we'll wait for the ActiveX object while acad.exe is still initializing
+			;wait for the ActiveX object while acad.exe is still initializing
 			$obj = ObjGet("", "AutoCAD.Application")
 		Else
-			$dwg = RegRead($reglist, "launcher")
+			$dwg = RegRead($regKey, $regName)
 			;are there any new file paths available?
 			If $dwg Then
 				;delete registry data after first use
-				RegDelete($reglist, "launcher")
+				RegDelete($regKey, $regName)
 				$dwg = StringSplit($dwg, "|")
 				For $i = 1 To $dwg[0]
 					;open drawings, one-by-one
-					$obj.Documents.open($dwg[$i])
+					Local $o = $obj.Documents.Open($dwg[$i])
+					If Not IsObj($o) Then MsgBox(0, "Error", $oError)
 				Next
 			EndIf
 		EndIf
 	EndIf
 	;acad.exe no longer running? exit then
-	If Not $acadPid Or ($acadPid And Not ProcessExists($acadPid)) Then quit()
+	If Not $acadPID Or ($acadPID And Not ProcessExists($acadPID)) Then quit()
 	Sleep(300)
 WEnd
 
-Func Err()
+Func Err($e)
+	$oError =	"err.number is:	" & "0x" & Hex($e.number) & @CRLF & _
+				"err.windescript.:	" & $e.windescription & ($e.windescription ? "" : @CRLF) &  _
+				"err.description:	" & $e.description & @CRLF & _
+				"err.source is:	" & $e.source & @CRLF & _
+				"err.helpfile is:	" & $e.helpfile & @CRLF & _
+				"err.helpcontext is:	" & $e.helpcontext & @CRLF & _
+				"err.lastdllerror is:	" & $e.lastdllerror & @CRLF & _
+				"err.scriptline is:	" & $e.scriptline & @CRLF & _
+				"err.retcode is:	" & "0x" & Hex($e.retcode) & @CRLF
+
 EndFunc   ;==>MyErrFunc
 
-Func quit()
+Func quit($clearReg = True)
+	If $clearReg Then RegDelete($regKey, $regName)
 	Exit
 EndFunc   ;==>quit
-
