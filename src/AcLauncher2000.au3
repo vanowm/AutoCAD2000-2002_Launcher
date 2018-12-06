@@ -7,7 +7,7 @@
 #AutoIt3Wrapper_UseUpx=y
 #AutoIt3Wrapper_Res_Comment=AutoCAD DWG Launcher
 #AutoIt3Wrapper_Res_Description=AutoCAD DWG Launcher
-#AutoIt3Wrapper_Res_Fileversion=1.0.0.9
+#AutoIt3Wrapper_Res_Fileversion=1.0.0.10
 #AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
 #AutoIt3Wrapper_Res_ProductVersion=1.0.0
 #AutoIt3Wrapper_Res_LegalCopyright=©V@no 2018
@@ -17,7 +17,7 @@
 #AutoIt3Wrapper_Run_Au3Stripper=y
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 
-Global Const $VERSION = "1.0.0.9"
+Global Const $VERSION = "1.0.0.10"
 ;registry key were we'll temporary store list of files to open in Acad
 Global $regKey = "HKCU\Software\Autodesk\AutoCAD"
 Global $regName = "AcLauncher2000"
@@ -30,7 +30,7 @@ $selfPID = ProcessExists($self)
 If $CmdLine[0] Then
 	Local $s = RegRead($regKey, $regName)
 	For $i = 1 To $CmdLine[0]
-		$s &= ($s = "" ? "" : "|") & $CmdLine[$i]
+		$s &= ($s = "" ? "" : "|") & '"' & $CmdLine[$i] & '"'
 	Next
 	;store everything from command line into registry
 	RegWrite($regKey, $regName, "REG_SZ", $s)
@@ -50,7 +50,8 @@ EndIf
 $acadPID = ProcessExists("acad.exe")
 If Not $acadPID Then
 	;acad.exe must be running in order to get ActiveX object
-	$acadPID = ShellExecute("acad.exe")
+	$acadPID = ShellExecute("acad.exe", StringReplace(RegRead($regKey, $regName), "|", " "))
+	RegDelete($regKey, $regName)
 EndIf
 ;loop while acad.exe is running, since we are running as elevated, no more UAC prompts will be displayed
 While (1)
